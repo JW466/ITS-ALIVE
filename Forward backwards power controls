@@ -1,0 +1,74 @@
+import RPi.GPIO as GPIO
+from pynput import keyboard  # Library for listening to keyboard events
+
+# GPIO pin setup
+in1 = 24
+in2 = 23
+en = 25
+
+# Initialize GPIO and PWM
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(in1, GPIO.OUT)
+GPIO.setup(in2, GPIO.OUT)
+GPIO.setup(en, GPIO.OUT)
+GPIO.output(in1, GPIO.LOW)
+GPIO.output(in2, GPIO.LOW)
+p = GPIO.PWM(en, 1000)  # PWM initialization
+p.start(80)  # Default duty cycle
+
+# Power levels (10% to 90%)
+power_levels = {
+    '1': 80,
+    '2': 90,
+    '3': 100
+}
+
+print("Press 'W' to go forward, 'S' to go backward. Release any key to stop.")
+
+
+current_power = 80  # Default power level
+
+# Function to handle key presses
+def on_press(key):
+    global current_power  # Need to access and modify the global power variable
+    
+    try:
+        # Check which key is pressed
+        if key.char == 'w':
+            GPIO.output(in1, GPIO.HIGH)
+            GPIO.output(in2, GPIO.LOW)
+            p.ChangeDutyCycle(current_power)  # Set PWM power
+            print("Moving forward at {}% power".format(current_power))
+
+        elif key.char == 's':
+            GPIO.output(in1, GPIO.LOW)
+            GPIO.output(in2, GPIO.HIGH)
+            p.ChangeDutyCycle(current_power)  # Set PWM power
+            print("Moving backward at {}% power".format(current_power))
+
+        # Set power based on number keys
+        elif key.char in power_levels:
+            current_power = power_levels[key.char]
+            p.ChangeDutyCycle(current_power)
+            print("Power set to {}%".format(current_power))
+    
+    except AttributeError:
+        pass  # Handle non-character key presses
+
+# Function to handle key releases
+def on_release(key):
+    # Stop the motor when any key is released
+    GPIO.output(in1, GPIO.LOW)
+    GPIO.output(in2, GPIO.LOW)
+    print("Motor stopped")
+
+    # Stop listening if the 'ESC' key is released
+    if key == keyboard.Key.esc:
+        return False  # Stop the listener and exit
+
+# Set up the keyboard listener
+with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
+    listener.join()  # Wait for the listener to finish
+
+# Clean up GPIO when exiting
+GPIO.cleanup()
